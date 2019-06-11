@@ -1,0 +1,30 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+group = 'com.liferay'
+version = '0.0.1-SNAPSHOT'
+
+description = """DDM User Field"""
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+}
+
+
+
+repositories {
+     maven { url "http://repo.maven.apache.org/maven2" }
+}
+dependencies {
+    compileOnly group: 'com.liferay', name: 'com.liferay.dynamic.data.mapping.service'
+    compileOnly group: 'com.liferay', name: 'com.liferay.dynamic.data.mapping.io'
+    compileOnly group: 'com.liferay', name: 'com.liferay.dynamic.data.mapping.form.field.type'
+    compileOnly group: 'com.liferay', name: 'com.liferay.dynamic.data.mapping.api'
+    compileOnly group: 'com.liferay.portal', name: 'com.liferay.portal.kernel'
+    compileOnly group: 'org.osgi', name: 'org.osgi.service.component.annotations'
+    
+    compileOnly group: 'javax.servlet', name: 'javax.servlet-api'
+    compileOnly group: 'javax.portlet', name: 'portlet-api'
+}

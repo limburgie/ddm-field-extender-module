@@ -25,9 +25,10 @@ import com.liferay.portal.kernel.util.StringPool;
  */
 @DDMForm
 @DDMFormLayout(
-		{
+		paginationMode = com.liferay.dynamic.data.mapping.model.DDMFormLayout.TABBED_MODE,
+		value = {
 				@DDMFormLayoutPage(
-						title = "basic",
+						title = "%basic",
 						value = {
 								@DDMFormLayoutRow(
 										{
@@ -41,15 +42,15 @@ import com.liferay.portal.kernel.util.StringPool;
 						}
 				),
 				@DDMFormLayoutPage(
-						title = "advanced",
+						title = "%properties",
 						value = {
 								@DDMFormLayoutRow(
 										{
 												@DDMFormLayoutColumn(
 														size = 12,
 														value = {
-																"repeatable", "showLabel", "validation",
-																"visibilityExpression"
+															"dataType", "name", "showLabel", "repeatable",
+															"type", "validation", "visibilityExpression"
 														}
 												)
 										}
@@ -99,16 +100,19 @@ public interface FieldExtenderDDMFormFieldTypeSettings extends DDMFormFieldTypeS
 	@DDMFormField(label = "%read-only", visibilityExpression = "FALSE")
 	public boolean readOnly();
 
-	@DDMFormField(label = "%repeatable", properties = {"showAsSwitcher=true"})
+	@DDMFormField(label = "%repeatable", properties = "showAsSwitcher=true")
 	public boolean repeatable();
 
 	@DDMFormField(
-			label = "%required-field", properties = {"showAsSwitcher=true"}
+			label = "%required-field", properties = "showAsSwitcher=true"
 	)
 	public boolean required();
 
-	@DDMFormField(label = "%show-label", properties = {"showAsSwitcher=true"})
+	@DDMFormField(label = "%show-label", properties = "showAsSwitcher=true")
 	public boolean showLabel();
+
+	@DDMFormField(label = "%multiItem")
+	public String multiItem();
 
 	@DDMFormField(
 			label = "%help-text",
@@ -121,7 +125,7 @@ public interface FieldExtenderDDMFormFieldTypeSettings extends DDMFormFieldTypeS
 	public LocalizedValue tip();
 
 	@DDMFormField(
-			dataType = "ddm-validation", label = "%validation", type = "validation"
+			dataType = "string", label = "%validation", type = "validation"
 	)
 	public DDMFormFieldValidation validation();
 
