@@ -27,6 +27,8 @@ AUI.add(
 			separator: ['indexType', 'localizable', 'predefinedValue', 'readOnly', 'required']
 		};
 
+		var REGEX_HYPHEN = /[-–—]/i;
+
 		var SETTINGS_TAB_INDEX = 1;
 
 		var STR_BLANK = '';
@@ -232,7 +234,7 @@ AUI.add(
 				UNIQUE_FIELD_NAMES_MAP: new A.Map(),
 
 				//TODO add new field attributes to this list
-				UNLOCALIZABLE_FIELD_ATTRS: ['dataType', 'fieldNamespace', 'indexType', 'localizable', 'multiple', 'name', 'readOnly', 'repeatable', 'required', 'showLabel', 'type'],
+				UNLOCALIZABLE_FIELD_ATTRS: ['dataType', 'fieldNamespace', 'indexType', 'localizable', 'multiple', 'name', 'readOnly', 'repeatable', 'required', 'showLabel', 'type', 'multiItem'],
 
 				prototype: {
 					initializer: function() {
@@ -390,6 +392,19 @@ AUI.add(
 								);
 							}
 						}
+
+						editor.after(
+							'render',
+							function() {
+								editor.set('visible', true);
+
+								var boundingBox = editor.get('boundingBox');
+
+								if (boundingBox) {
+									boundingBox.show();
+								}
+							}
+						);
 					},
 
 					_deserializeField: function(fieldJSON, availableLanguageIds) {
@@ -801,7 +816,25 @@ AUI.add(
 			},
 
 			validateFieldName: function(fieldName) {
-				return (/^[\w]+$/).test(fieldName);
+				var valid = true;
+
+				if (REGEX_HYPHEN.test(fieldName)) {
+					valid = false;
+
+					return valid;
+				}
+
+				for (var i = 0; i < fieldName.length; i++) {
+					var item = fieldName[i];
+
+					if (!A.Text.Unicode.test(item, 'L') && !A.Text.Unicode.test(item, 'N') && !A.Text.Unicode.test(item, 'Pd') && item != STR_UNDERSCORE) {
+						valid = false;
+
+						break;
+					}
+				}
+
+				return valid;
 			}
 		};
 
@@ -814,6 +847,12 @@ AUI.add(
 					iconClass: 'icon-fb-boolean',
 					label: Liferay.Language.get('boolean'),
 					type: 'checkbox'
+				},
+				{
+					hiddenAttributes: MAP_HIDDEN_FIELD_ATTRS.DEFAULT,
+					iconClass: 'icon-adjust',
+					label: Liferay.Language.get('color'),
+					type: 'ddm-color'
 				},
 				{
 					hiddenAttributes: MAP_HIDDEN_FIELD_ATTRS.DEFAULT,
@@ -892,6 +931,12 @@ AUI.add(
 					iconClass: 'icon-fb-text-box',
 					label: Liferay.Language.get('text-box'),
 					type: 'textarea'
+				},
+				{
+					hiddenAttributes: MAP_HIDDEN_FIELD_ATTRS.DEFAULT,
+					iconClass: 'icon-user',
+					label: Liferay.Language.get('users'),
+					type: 'ddm-users'
 				}
 				//TODO add field type to this list
 			],

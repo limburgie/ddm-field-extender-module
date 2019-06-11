@@ -9,17 +9,23 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.osgi.service.component.annotations.Component;
 
+import com.liferay.dynamic.data.mapping.constants.DDMPortletKeys;
 import com.liferay.dynamic.data.mapping.model.*;
 import com.liferay.dynamic.data.mapping.render.DDMFormFieldRenderer;
 import com.liferay.dynamic.data.mapping.render.DDMFormFieldRenderingContext;
 import com.liferay.dynamic.data.mapping.storage.Field;
 import com.liferay.dynamic.data.mapping.storage.Fields;
-import com.liferay.dynamic.data.mapping.util.impl.DDMFieldsCounter;
-import com.liferay.dynamic.data.mapping.util.impl.DDMImpl;
+import com.liferay.dynamic.data.mapping.util.DDMFieldsCounter;
+import com.liferay.portal.kernel.editor.Editor;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.io.unsync.UnsyncStringWriter;
+import com.liferay.portal.kernel.language.LanguageConstants;
 import com.liferay.portal.kernel.language.LanguageUtil;
+import com.liferay.portal.kernel.log.Log;
+import com.liferay.portal.kernel.log.LogFactoryUtil;
+import com.liferay.portal.kernel.security.auth.AuthTokenUtil;
 import com.liferay.portal.kernel.template.*;
+import com.liferay.portal.kernel.theme.ThemeDisplay;
 import com.liferay.portal.kernel.util.*;
 
 /**
@@ -64,6 +70,25 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 		}
 	}
 
+	protected void addDDMFormFieldOptionHTML(
+			HttpServletRequest request, HttpServletResponse response,
+			DDMFormField ddmFormField, String mode, boolean readOnly,
+			Map<String, Object> freeMarkerContext, StringBundler sb,
+			String label, String value)
+			throws Exception {
+		Map<String, Object> fieldStructure = new HashMap<>();
+		fieldStructure.put("children", StringPool.BLANK);
+		fieldStructure.put("fieldNamespace", StringUtil.randomId());
+		fieldStructure.put("label", label);
+		fieldStructure.put("name", StringUtil.randomId());
+		fieldStructure.put("value", value);
+		freeMarkerContext.put("fieldStructure", fieldStructure);
+		sb.append(
+				processFTL(
+						request, response, ddmFormField.getFieldNamespace(), "option",
+						mode, readOnly, freeMarkerContext));
+	}
+
 	protected void addLayoutProperties(DDMFormField ddmFormField, Map<String, Object> fieldContext, Locale locale) {
 
 		LocalizedValue label = ddmFormField.getLabel();
@@ -84,6 +109,7 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 	}
 
 	protected void addStructureProperties(DDMFormField ddmFormField, Map<String, Object> fieldContext) {
+
 		fieldContext.put("dataType", ddmFormField.getDataType());
 		fieldContext.put("indexType", ddmFormField.getIndexType());
 		fieldContext.put("localizable", Boolean.toString(ddmFormField.isLocalizable()));
@@ -94,8 +120,6 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 		fieldContext.put("required", Boolean.toString(ddmFormField.isRequired()));
 		fieldContext.put("showLabel", Boolean.toString(ddmFormField.isShowLabel()));
 		fieldContext.put("type", ddmFormField.getType());
-
-		//TODO add additional field attributes
 	}
 
 	protected int countFieldRepetition(String[] fieldsDisplayValues, String parentFieldName, int offset) {
@@ -273,7 +297,7 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 
 		String fieldsDisplayValue = fieldsDisplayValues[offset];
 
-		return StringUtil.extractLast(fieldsDisplayValue, DDMImpl.INSTANCE_SEPARATOR);
+		return StringUtil.extractLast(fieldsDisplayValue, FieldExtenderDDMImpl.INSTANCE_SEPARATOR);
 	}
 
 	protected int getFieldOffset(String[] fieldsDisplayValues, String name, int index) {
@@ -312,7 +336,12 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 
 		String fieldsCounterKey = portletNamespace + namespace + "fieldsCount";
 
-		DDMFieldsCounter ddmFieldsCounter = (DDMFieldsCounter) request.getAttribute(fieldsCounterKey);
+		DDMFieldsCounter ddmFieldsCounter;
+		try {
+			ddmFieldsCounter = (DDMFieldsCounter)request.getAttribute(fieldsCounterKey);
+		} catch(ClassCastException e) {
+			ddmFieldsCounter = new DDMFieldsCounter();
+		}
 
 		if (ddmFieldsCounter == null) {
 			ddmFieldsCounter = new DDMFieldsCounter();
@@ -328,21 +357,21 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 		String defaultFieldsDisplayValue = null;
 
 		if (fields != null) {
-			Field fieldsDisplayField = fields.get(DDMImpl.FIELDS_DISPLAY_NAME);
+			Field fieldsDisplayField = fields.get(FieldExtenderDDMImpl.FIELDS_DISPLAY_NAME);
 
 			if (fieldsDisplayField != null) {
 				defaultFieldsDisplayValue = (String) fieldsDisplayField.getValue();
 			}
 		}
 
-		return ParamUtil.getString(request, DDMImpl.FIELDS_DISPLAY_NAME, defaultFieldsDisplayValue);
+		return ParamUtil.getString(request, FieldExtenderDDMImpl.FIELDS_DISPLAY_NAME, defaultFieldsDisplayValue);
 	}
 
 	protected String[] getFieldsDisplayValues(String fieldDisplayValue) {
 		List<String> fieldsDisplayValues = new ArrayList<>();
 
 		for (String value : StringUtil.split(fieldDisplayValue)) {
-			String fieldName = StringUtil.extractFirst(value, DDMImpl.INSTANCE_SEPARATOR);
+			String fieldName = StringUtil.extractFirst(value, FieldExtenderDDMImpl.INSTANCE_SEPARATOR);
 
 			fieldsDisplayValues.add(fieldName);
 		}
@@ -363,11 +392,32 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 			parentFieldContext = getFieldContext(request, response, portletNamespace, namespace, parentDDMFormField, locale);
 		}
 
+		freeMarkerContext.put(
+			"ddmPortletId", DDMPortletKeys.DYNAMIC_DATA_MAPPING);
+		Editor editor = DDMFormFieldFreeMarkerRendererHelper.getEditor(request);
+		freeMarkerContext.put("editorName", editor.getName());
+
+		
+		ThemeDisplay themeDisplay = (ThemeDisplay)request.getAttribute(
+				WebKeys.THEME_DISPLAY);
+		try {
+			String itemSelectorAuthToken = AuthTokenUtil.getToken(
+					request,
+					PortalUtil.getControlPanelPlid(themeDisplay.getCompanyId()),
+					PortletKeys.ITEM_SELECTOR);
+			freeMarkerContext.put(
+					"itemSelectorAuthToken", itemSelectorAuthToken);
+		}
+		catch (PortalException pe) {
+			System.out.println(pe);
+		}
+
+
 		freeMarkerContext.put("fieldStructure", fieldContext);
 		freeMarkerContext.put("namespace", namespace);
 		freeMarkerContext.put("parentFieldStructure", parentFieldContext);
 		freeMarkerContext.put("portletNamespace", portletNamespace);
-		freeMarkerContext.put("requestedLanguageDir", LanguageUtil.get(locale, "lang.dir"));
+		freeMarkerContext.put("requestedLanguageDir", LanguageUtil.get(locale, LanguageConstants.KEY_DIR));
 		freeMarkerContext.put("requestedLocale", locale);
 		freeMarkerContext.put("showEmptyFieldLabel", showEmptyFieldLabel);
 
@@ -473,7 +523,7 @@ public class FieldExtenderDDMFormFieldRenderer implements DDMFormFieldRenderer {
 	private static final String _DEFAULT_READ_ONLY_NAMESPACE = "readonly";
 
 	//TODO add custom field types to this list
-	private static final String[] _SUPPORTED_DDM_FORM_FIELD_TYPES = { };
+	private static final String[] _SUPPORTED_DDM_FORM_FIELD_TYPES = { "ddm-users" };
 
 	private static final String _TPL_EXT = ".ftl";
 

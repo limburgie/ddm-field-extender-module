@@ -3,6 +3,8 @@ AUI.add(
 	function(A) {
 		var AArray = A.Array;
 
+		var AEscape = A.Escape;
+
 		var FormBuilderTextField = A.FormBuilderTextField;
 		var FormBuilderTypes = A.FormBuilderField.types;
 
@@ -20,9 +22,21 @@ AUI.add(
 		var isUndefined = Lang.isUndefined;
 		var isValue = Lang.isValue;
 
+		var CSS_FIELD = A.getClassName('field');
+
+		var CSS_FIELD_CHOICE = A.getClassName('field', 'choice');
+
+		var CSS_FIELD_RADIO = A.getClassName('field', 'radio');
+
+		var CSS_FORM_BUILDER_FIELD_NODE = A.getClassName('form-builder-field', 'node');
+
+		var CSS_RADIO = A.getClassName('radio');
+
 		var DEFAULTS_FORM_VALIDATOR = A.config.FormValidator;
 
 		var LOCALIZABLE_FIELD_ATTRS = Liferay.FormBuilder.LOCALIZABLE_FIELD_ATTRS;
+
+		var RESTRICTED_NAME = 'submit';
 
 		var STR_BLANK = '';
 
@@ -30,34 +44,43 @@ AUI.add(
 
 		var STR_SPACE = ' ';
 
+		var TPL_COLOR = '<input class="field form-control" type="text" value="' + A.Escape.html(Liferay.Language.get('color')) + '" readonly="readonly">';
+
 		var TPL_GEOLOCATION = '<div class="field-labels-inline">' +
-			'<img src="' + themeDisplay.getPathThemeImages() + '/common/geolocation.png" title="' + A.Escape.html(Liferay.Language.get('geolocate')) + '" />' +
+				'<img src="' + themeDisplay.getPathThemeImages() + '/common/geolocation.png" title="' + A.Escape.html(Liferay.Language.get('geolocate')) + '" />' +
 			'<div>';
 
 		var TPL_INPUT_BUTTON = '<div class="form-group">' +
-			'<input class="field form-control" type="text" value="" readonly="readonly">' +
-			'<div class="button-holder">' +
-			'<button class="btn select-button btn-default" type="button">' +
-			'<span class="lfr-btn-label">' + A.Escape.html(Liferay.Language.get('select')) + '</span>' +
-			'</button>' +
-			'</div>' +
+				'<input class="field form-control" type="text" value="" readonly="readonly">' +
+				'<div class="button-holder">' +
+					'<button class="btn select-button btn-default" type="button">' +
+						'<span class="lfr-btn-label">' + A.Escape.html(Liferay.Language.get('select')) + '</span>' +
+					'</button>' +
+				'</div>' +
 			'</div>';
 
 		var TPL_PARAGRAPH = '<p></p>';
+
+		var TPL_RADIO = '<div class="' + CSS_RADIO + '">' +
+				'<label class="radio-inline" for="{id}">' +
+					'<input id="{id}" class="' + [CSS_FIELD, CSS_FIELD_CHOICE, CSS_FIELD_RADIO, CSS_FORM_BUILDER_FIELD_NODE].join(' ') + '" name="{name}" type="radio" value="{value}" {checked} {disabled} />' +
+					'{label}' +
+				'</label>' +
+			'</div>';
 
 		var TPL_SEPARATOR = '<div class="separator"></div>';
 
 		var TPL_TEXT_HTML = '<textarea class="form-builder-field-node lfr-ddm-text-html"></textarea>';
 
 		var TPL_WCM_IMAGE = '<div class="form-group">' +
-			'<input class="field form-control" type="text" value="" readonly="readonly">' +
-			'<div class="button-holder">' +
-			'<button class="btn select-button btn-default" type="button">' +
-			'<span class="lfr-btn-label">' + A.Escape.html(Liferay.Language.get('select')) + '</span>' +
-			'</button>' +
-			'</div>' +
-			'<label class="control-label">' + A.Escape.html(Liferay.Language.get('image-description')) + '</label>' +
-			'<input class="field form-control" type="text" value="" disabled>' +
+				'<input class="field form-control" type="text" value="" readonly="readonly">' +
+				'<div class="button-holder">' +
+					'<button class="btn select-button btn-default" type="button">' +
+						'<span class="lfr-btn-label">' + A.Escape.html(Liferay.Language.get('select')) + '</span>' +
+					'</button>' +
+				'</div>' +
+				'<label class="control-label">' + A.Escape.html(Liferay.Language.get('image-description')) + '</label>' +
+				'<input class="field form-control" type="text" value="" disabled>' +
 			'</div>';
 
 		var UNIQUE_FIELD_NAMES_MAP = Liferay.FormBuilder.UNIQUE_FIELD_NAMES_MAP;
@@ -88,6 +111,12 @@ AUI.add(
 			return LiferayFormBuilderUtil.validateFieldName(value);
 		};
 
+		DEFAULTS_FORM_VALIDATOR.STRINGS.structureRestrictedFieldName = Lang.sub(Liferay.Language.get('x-is-a-reserved-word'), [RESTRICTED_NAME]);
+
+		DEFAULTS_FORM_VALIDATOR.RULES.structureRestrictedFieldName = function(value) {
+			return RESTRICTED_NAME !== value;
+		};
+
 		var applyStyles = function(node, styleContent) {
 			var styles = styleContent.replace(/\n/g, STR_BLANK).split(';');
 
@@ -106,6 +135,97 @@ AUI.add(
 				}
 			);
 		};
+
+		var ColorCellEditor = A.Component.create(
+			{
+				EXTENDS: A.BaseCellEditor,
+
+				NAME: 'color-cell-editor',
+
+				prototype: {
+					ELEMENT_TEMPLATE: '<input type="text" />',
+
+					renderUI: function() {
+						var instance = this;
+
+						ColorCellEditor.superclass.renderUI.apply(instance, arguments);
+
+						var input = instance.get('boundingBox').one('input');
+
+						var colorPicker = new A.ColorPickerPopover(
+							{
+								trigger: input,
+								zIndex: 65535
+							}
+						).render();
+
+						colorPicker.on(
+							'select',
+							function(event) {
+								input.setStyle('color', event.color);
+								input.val(event.color);
+
+								instance.fire(
+									'save',
+									{
+										newVal: instance.getValue(),
+										prevVal: event.color
+									}
+								);
+							}
+						);
+
+						instance.set('colorPicker', colorPicker);
+					},
+
+					getElementsValue: function() {
+						var instance = this;
+
+						var retVal;
+
+						var input = instance.get('boundingBox').one('input');
+
+						if (input) {
+							var val = input.val();
+
+							if (/\#[A-F\d]{6}/.test(val)) {
+								retVal = val;
+							}
+						}
+
+						return retVal;
+					},
+
+					_defSaveFn: function() {
+						var instance = this;
+
+						var colorPicker = instance.get('colorPicker');
+
+						var input = instance.get('boundingBox').one('input');
+
+						if (/\#[A-F\d]{6}/.test(input.val())) {
+							ColorCellEditor.superclass._defSaveFn.apply(instance, arguments);
+						}
+						else {
+							colorPicker.show();
+						}
+					},
+
+					_uiSetValue: function(val) {
+						var instance = this;
+
+						var input = instance.get('boundingBox').one('input');
+
+						input.setStyle('color', val);
+						input.val(val);
+
+						instance.elements.val(val);
+					}
+
+				}
+
+			}
+		);
 
 		var DLFileEntryCellEditor = A.Component.create(
 			{
@@ -318,6 +438,188 @@ AUI.add(
 			}
 		);
 
+		var JournalArticleCellEditor = A.Component.create(
+			{
+				EXTENDS: A.BaseCellEditor,
+
+				NAME: 'journal-article-cell-editor',
+
+				prototype: {
+					ELEMENT_TEMPLATE: '<input type="hidden" />',
+
+					getElementsValue: function() {
+						var instance = this;
+
+						return instance.get('value');
+					},
+
+					getParsedValue: function(value) {
+						if (Lang.isString(value)) {
+							if (value !== '') {
+								value = JSON.parse(value);
+							}
+							else {
+								value = {};
+							}
+						}
+
+						return value;
+					},
+
+					setValue: function(value) {
+						var instance = this;
+
+						var parsedValue = instance.getParsedValue(value);
+
+						if (!parsedValue.className && !parsedValue.classPK) {
+							value = '';
+						}
+						else {
+							value = JSON.stringify(parsedValue);
+						}
+
+						instance.set('value', value);
+					},
+
+					_defInitToolbarFn: function() {
+						var instance = this;
+
+						JournalArticleCellEditor.superclass._defInitToolbarFn.apply(instance, arguments);
+
+						instance.toolbar.add(
+							{
+								label: Liferay.Language.get('select'),
+								on: {
+									click: A.bind('_onClickChoose', instance)
+								}
+							},
+							1
+						);
+
+						instance.toolbar.add(
+							{
+								label: Liferay.Language.get('clear'),
+								on: {
+									click: A.bind('_onClickClear', instance)
+								}
+							},
+							2
+						);
+					},
+
+					_getWebContentSelectorURL: function() {
+						var instance = this;
+
+						var url = Liferay.PortletURL.createRenderURL(themeDisplay.getURLControlPanel());
+
+						url.setParameter('eventName', 'selectContent');
+						url.setParameter('groupId', themeDisplay.getScopeGroupId());
+						url.setParameter('p_auth', Liferay.authToken);
+						url.setParameter('selectedGroupId', themeDisplay.getScopeGroupId());
+						url.setParameter('showNonindexable', true);
+						url.setParameter('showScheduled', true);
+						url.setParameter('typeSelection', 'com.liferay.journal.model.JournalArticle');
+						url.setPortletId('com_liferay_asset_browser_web_portlet_AssetBrowserPortlet');
+						url.setWindowState('pop_up');
+
+						return url;
+					},
+
+					_handleCancelEvent: function(event) {
+						var instance = this;
+
+						instance.get('boundingBox').hide();
+					},
+
+					_handleSaveEvent: function(event) {
+						var instance = this;
+
+						JournalArticleCellEditor.superclass._handleSaveEvent.apply(instance, arguments);
+
+						instance.get('boundingBox').hide();
+					},
+
+					_onClickChoose: function(event) {
+						var instance = this;
+
+						Liferay.Util.selectEntity(
+							{
+								dialog: {
+									constrain: true,
+									destroyOnHide: true,
+									modal: true
+								},
+								eventName: 'selectContent',
+								id: 'selectContent',
+								title: Liferay.Language.get('journal-article'),
+								uri: instance._getWebContentSelectorURL()
+							},
+							function(event) {
+								if (event.details.length > 0) {
+									var selectedWebContent = event.details[0];
+
+									instance.setValue(
+										{
+											className: selectedWebContent.assetclassname,
+											classPK: selectedWebContent.assetclasspk,
+											title: selectedWebContent.assettitle
+										}
+									);
+								}
+							}
+						);
+					},
+
+					_onClickClear: function() {
+						var instance = this;
+
+						instance.set('value', STR_BLANK);
+					},
+
+					_onDocMouseDownExt: function(event) {
+						var instance = this;
+
+						var boundingBox = instance.get('boundingBox');
+
+						if (!boundingBox.contains(event.target)) {
+							instance._handleCancelEvent(event);
+						}
+					},
+
+					_syncJournalArticleLabel: function(title) {
+						var instance = this;
+
+						var contentBox = instance.get('contentBox');
+
+						var linkNode = contentBox.one('span');
+
+						if (!linkNode) {
+							linkNode = A.Node.create('<span></span>');
+
+							contentBox.prepend(linkNode);
+						}
+
+						linkNode.setContent(LString.escapeHTML(title));
+					},
+
+					_uiSetValue: function(val) {
+						var instance = this;
+
+						if (val) {
+							val = JSON.parse(val);
+							var title = Liferay.Language.get('journal-article') + ': ' + val.classPK;
+
+							instance._syncJournalArticleLabel(title);
+						}
+						else {
+							instance._syncJournalArticleLabel(STR_BLANK);
+						}
+					}
+				}
+
+			}
+		);
+
 		var LinkToPageCellEditor = A.Component.create(
 			{
 				EXTENDS: A.DropDownCellEditor,
@@ -466,7 +768,9 @@ AUI.add(
 		Liferay.FormBuilder.CUSTOM_CELL_EDITORS = {};
 
 		var customCellEditors = [
+			ColorCellEditor,
 			DLFileEntryCellEditor,
+			JournalArticleCellEditor,
 			LinkToPageCellEditor
 		];
 
@@ -880,6 +1184,16 @@ AUI.add(
 						value = A.Object.getValue(localizationMap, [defaultLocale, attribute]);
 
 						if (!isValue(value)) {
+							for (var localizationMapLocale in localizationMap) {
+								value = A.Object.getValue(localizationMap, [localizationMapLocale, attribute]);
+
+								if (isValue(value)) {
+									break;
+								}
+							}
+						}
+
+						if (!isValue(value)) {
 							value = STR_BLANK;
 						}
 					}
@@ -951,7 +1265,8 @@ AUI.add(
 										value: {
 											required: true,
 											structureDuplicateFieldName: true,
-											structureFieldName: true
+											structureFieldName: true,
+											structureRestrictedFieldName: true
 										}
 									}
 								}
@@ -1003,6 +1318,56 @@ AUI.add(
 			);
 		};
 
+		var DDMColorField = A.Component.create(
+			{
+				ATTRS: {
+					dataType: {
+						value: 'color'
+					},
+
+					fieldNamespace: {
+						value: 'ddm'
+					},
+
+					showLabel: {
+						value: false
+					}
+				},
+
+				EXTENDS: A.FormBuilderField,
+
+				NAME: 'ddm-color',
+
+				prototype: {
+					getHTML: function() {
+						return TPL_COLOR;
+					},
+
+					getPropertyModel: function() {
+						var instance = this;
+
+						var model = DDMColorField.superclass.getPropertyModel.apply(instance, arguments);
+
+						model.forEach(
+							function(item, index, collection) {
+								var attributeName = item.attributeName;
+
+								if (attributeName === 'predefinedValue') {
+									collection[index] = {
+										attributeName: attributeName,
+										editor: new ColorCellEditor(),
+										name: Liferay.Language.get('predefined-value')
+									};
+								}
+							}
+						);
+
+						return model;
+					}
+				}
+			}
+		);
+
 		var DDMDateField = A.Component.create(
 			{
 				ATTRS: {
@@ -1025,14 +1390,40 @@ AUI.add(
 
 						DDMDateField.superclass.renderUI.apply(instance, arguments);
 
-						instance.datePicker = new A.DatePickerDeprecated(
-							{
-								calendar: {
-									locale: Liferay.ThemeDisplay.getLanguageId()
-								},
-								trigger: instance.get('templateNode')
-							}
-						).render();
+						var trigger = instance.get('templateNode').one('input');
+
+						if (trigger) {
+							instance.datePicker = new A.DatePickerDeprecated(
+								{
+									calendar: {
+										locale: Liferay.ThemeDisplay.getLanguageId()
+									},
+									on: {
+										selectionChange: function(event) {
+											var date = event.newSelection;
+
+											instance.setValue(A.Date.format(date));
+										}
+									},
+									popover: {
+										on: {
+											keydown: function(event) {
+												var instance = this;
+
+												var domEvent = event.domEvent;
+
+												if (domEvent.keyCode == 9 && domEvent.target.hasClass('yui3-calendar-grid')) {
+													instance.hide();
+
+													Liferay.Util.focusFormField(trigger);
+												}
+											}
+										}
+									},
+									trigger: trigger
+								}
+							).render();
+						}
 
 						instance.datePicker.calendar.set(
 							'strings',
@@ -1063,13 +1454,27 @@ AUI.add(
 												inputFormatter: function(val) {
 													var instance = this;
 
-													var value = STR_BLANK;
+													var value = val;
 
-													if (val && val.length) {
+													if (Array.isArray(val)) {
 														value = instance.formatDate(val[0]);
 													}
 
 													return value;
+												},
+
+												outputFormatter: function(val) {
+													var instance = this;
+
+													var retVal = val;
+
+													if (Array.isArray(val)) {
+														var formattedValue = A.DataType.Date.parse(instance.get('dateFormat'), val[0]);
+
+														retVal = [formattedValue];
+													}
+
+													return retVal;
 												}
 											}
 										),
@@ -1348,6 +1753,79 @@ AUI.add(
 			}
 		);
 
+		var DDMRadioField = A.Component.create(
+			{
+				ATTRS: {
+					dataType: {
+						value: 'radio'
+					},
+
+					predefinedValue: {
+						setter: function(val) {
+							return val;
+						}
+					}
+				},
+
+				EXTENDS: A.FormBuilderRadioField,
+
+				NAME: 'ddm-radio',
+
+				OVERRIDE_TYPE: 'radio',
+
+				prototype: {
+					_uiSetOptions: function(val) {
+						var instance = this;
+
+						var buffer = [];
+						var counter = 0;
+
+						var predefinedValue = instance.get('predefinedValue');
+						var templateNode = instance.get('templateNode');
+
+						A.each(
+							val,
+							function(item) {
+								var checked = predefinedValue === item.value;
+
+								buffer.push(
+									Lang.sub(
+										TPL_RADIO,
+										{
+											checked: checked ? 'checked="checked"' : '',
+											disabled: instance.get('disabled') ? 'disabled="disabled"' : '',
+											id: AEscape.html(instance.get('id') + counter++),
+											label: AEscape.html(item.label),
+											name: AEscape.html(instance.get('name')),
+											value: AEscape.html(item.value)
+										}
+									)
+								);
+							}
+						);
+
+						instance.optionNodes = A.NodeList.create(buffer.join(''));
+
+						templateNode.setContent(instance.optionNodes);
+					},
+
+					_uiSetPredefinedValue: function(val) {
+						var instance = this;
+
+						var optionNodes = instance.optionNodes;
+
+						if (!optionNodes) {
+							return;
+						}
+
+						optionNodes.set('checked', false);
+
+						optionNodes.all('input[value="' + AEscape.html(val) + '"]').set('checked', true);
+					}
+				}
+			}
+		);
+
 		var DDMSeparatorField = A.Component.create(
 			{
 				ATTRS: {
@@ -1468,6 +1946,30 @@ AUI.add(
 							}
 						);
 
+						model.forEach(
+							function(item, index, collection) {
+								var attributeName = item.attributeName;
+
+								if (attributeName === 'predefinedValue') {
+									item.editor = new JournalArticleCellEditor();
+
+									item.formatter = function(obj) {
+										var data = obj.data;
+
+										var label = STR_BLANK;
+
+										var value = data.value;
+
+										if (value !== STR_BLANK) {
+											label = '(' + Liferay.Language.get('journal-article') + ')';
+										}
+
+										return label;
+									};
+								}
+							}
+						);
+
 						return model;
 					}
 				}
@@ -1513,8 +2015,56 @@ AUI.add(
 		);
 
 		//TODO add new field definitions here
+		var multipleOptions = {
+			'false': Liferay.Language.get('no'),
+			'true': Liferay.Language.get('yes')
+		};
+
+		var DDMUserField = A.Component.create({
+			ATTRS: {
+				multiItem: {
+					value: 'false'
+				},
+				dataType: {
+					value: 'string'
+				},
+				fieldNamespace: {
+					value: 'ddm'
+				}
+			},
+
+			EXTENDS: FormBuilderTextField,
+
+			NAME: 'ddm-users',
+
+			prototype: {
+				getHTML: function() {
+					return '<div class="lfr-ddm-users">' +
+						'<input type="text" readonly="true" value="User Field" />' +
+						'</div>';
+				},
+				getPropertyModel: function() {
+					var instance = this;
+
+					var model = originalGetPropertyModel.call(instance);
+
+					return model.concat([{
+						attributeName: 'multiItem',
+						editor: new A.RadioCellEditor(
+							{
+								options: multipleOptions
+							}),
+						formatter: function(val) {
+							return multipleOptions[val.data.value];
+						},
+						name: 'multiple'
+					}]);
+				}
+			}
+		});
 
 		var plugins = [
+			DDMColorField,
 			DDMDateField,
 			DDMDecimalField,
 			DDMDocumentLibraryField,
@@ -1525,20 +2075,22 @@ AUI.add(
 			DDMLinkToPageField,
 			DDMNumberField,
 			DDMParagraphField,
+			DDMRadioField,
 			DDMSeparatorField,
 			DDMHTMLTextField,
-			DDMTextAreaField
+			DDMTextAreaField,
 			//TODO add field object to this list
+			DDMUserField
 		];
 
 		plugins.forEach(
 			function(item, index) {
-				FormBuilderTypes[item.NAME] = item;
+				FormBuilderTypes[item.OVERRIDE_TYPE || item.NAME] = item;
 			}
 		);
 	},
 	'',
 	{
-		requires: ['liferay-item-selector-dialog', 'liferay-portlet-dynamic-data-mapping']
+		requires: ['aui-base', 'aui-color-picker-popover', 'aui-io-request', 'aui-url', 'liferay-item-selector-dialog', 'liferay-portlet-dynamic-data-mapping', 'liferay-portlet-url']
 	}
 );

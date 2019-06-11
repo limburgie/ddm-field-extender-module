@@ -1,0 +1,8 @@
+Bundle-Name: extension-ddm-user-field
+Bundle-SymbolicName: com.liferay.dynamic.data.mapping.field.ddm-user-field
+Bundle-Version: 1.0.0
+Export-Package: com.liferay.dynamic.data.mapping.dependencies, com.liferay.dynamic.data.mapping.dependencies.alloy, com.liferay.dynamic.data.mapping.dependencies.ddm, com.liferay.dynamic.data.mapping.dependencies.readonly
+-sources: true
+-jsp: *.jsp, *.jspf
+Web-ContextPath: /dynamic-data-mapping-field-extender
+Liferay-JS-Config: /META-INF/resources/js/config.js
