@@ -1,0 +1,1 @@
+Use target-platform-indexer to get the correct dependency versions || copy versions from mvn branch
